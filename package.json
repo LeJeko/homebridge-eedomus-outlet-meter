@@ -1,0 +1,30 @@
+{
+	"name": "homebridge-eedomus-outlet-meter",
+	"version": "0.1.0",
+	"description": "Switch Outlet from eedomus and show data with fakegato-history",
+	"license": "MIT",
+	"keywords": [
+		"homebridge-plugin",
+		"outlet",
+		"eedomus",
+		"power",
+		"history",
+		"fakegato"
+	],
+	"repository": {
+    	"type": "git",
+    	"url": "https://github.com/LeJeko/homebridge-eedomus-outlet-meter.git"
+    },
+	"bugs": {
+		"url": "https://github.com/LeJeko/homebridge-eedomus-outlet-meter/issues"
+	},
+	"engines": {
+		"node": ">=0.12.0",
+		"homebridge": ">=0.2.0"
+	},
+	"dependencies": {
+		"request": "^2.65.0",
+		"fakegato-history": ">=0.5.5",
+		"polling-to-event": ">=2.1.0"
+	}
+}
