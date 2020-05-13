@@ -1,4 +1,16 @@
+<p align="center">
+  <a href="https://github.com/homebridge/homebridge"><img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-color-round-stylized.png" height="140"></a>
+</p>
+
+<span align="center">
+
 # homebridge-eedomus-outlet-meter
+
+[![npm](https://img.shields.io/npm/v/homebridge-eedomus-outlet-meter.svg)](https://www.npmjs.com/package/homebridge-eedomus-outlet-meter) [![npm](https://img.shields.io/npm/dt/homebridge-eedomus-outlet-meter.svg)](https://www.npmjs.com/package/homebridge-eedomus-outlet-meter)
+
+</span>
+
+## Description
 A simple Homebridge plugin for eddomus outlets providing data to Elgato Eve app using Fakegato-History.
 
 eedomus box create two separate periph_id for "state" and "power metering". Usually the second one was the next periph_id but you can change it if needed.
