@@ -1,9 +1,8 @@
 var Service, Characteristic, UUIDGen, FakeGatoHistoryService;
 var request = require("request");
+var sprintf = require("sprintf-js").sprintf;
 var inherits = require('util').inherits;
-var pollingToEvent = require('polling-to-event');
-var totalPower = 0;
-var refresh = 0;
+var correctingInterval = require('correcting-interval');
 
 //Initialize
 module.exports = function(homebridge) {
@@ -12,7 +11,7 @@ module.exports = function(homebridge) {
 	UUIDGen = homebridge.hap.uuid;
 	FakeGatoHistoryService = require('fakegato-history')(homebridge);
 	
-	CurrentpowerConsumption = function () {
+	CurrentPowerConsumption = function () {
 		Characteristic.call(this, 'Consumption', 'E863F10D-079E-48FF-8F27-9C2605A29F52');
 		this.setProps({
 			format: Characteristic.Formats.UINT16,
@@ -24,10 +23,10 @@ module.exports = function(homebridge) {
 		});
 		this.value = this.getDefaultValue();
 	};
-	CurrentpowerConsumption.UUID = 'E863F10D-079E-48FF-8F27-9C2605A29F52';
-	inherits(CurrentpowerConsumption, Characteristic);
+	CurrentPowerConsumption.UUID = 'E863F10D-079E-48FF-8F27-9C2605A29F52';
+	inherits(CurrentPowerConsumption, Characteristic);
 
-	TotalPowerConsumption = function () {
+	TotalConsumption = function () {
 		Characteristic.call(this, 'Energy', 'E863F10C-079E-48FF-8F27-9C2605A29F52');
 		this.setProps({
 			format: Characteristic.Formats.FLOAT,
@@ -39,8 +38,8 @@ module.exports = function(homebridge) {
 		});
 		this.value = this.getDefaultValue();
 	};
-	TotalPowerConsumption.UUID = 'E863F10C-079E-48FF-8F27-9C2605A29F52';
-	inherits(TotalPowerConsumption, Characteristic);
+	TotalConsumption.UUID = 'E863F10C-079E-48FF-8F27-9C2605A29F52';
+	inherits(TotalConsumption, Characteristic);
 
 	ResetTotal = function () {
 		Characteristic.call(this, 'Reset', 'E863F112-079E-48FF-8F27-9C2605A29F52');
@@ -53,6 +52,14 @@ module.exports = function(homebridge) {
 	ResetTotal.UUID = 'E863F112-079E-48FF-8F27-9C2605A29F52';
 	inherits(ResetTotal, Characteristic);
 
+	PowerMeterService = function (displayName, subtype) {
+		Service.call(this, displayName, '00000001-0000-1777-8000-775D67EC4377', subtype);
+		this.addCharacteristic(CurrentPowerConsumption);
+		this.addCharacteristic(TotalConsumption);
+		this.addCharacteristic(ResetTotal);
+	};
+	inherits(PowerMeterService, Service);
+
 	FakeGatoHistoryService = FakeGatoHistoryService;
 	inherits(FakeGatoHistoryService, Service);
 
@@ -61,17 +68,17 @@ module.exports = function(homebridge) {
 
 // function eedomusOutlet
 function eedomusOutlet(log, config) {
-	var self = this;
 	this.log = log;
-	this.name = config["name"];
-	this.url = config["url"];
-	refresh = config["refreshSeconds"] * 1000 || 10000;
-	this.periph_id = config["periph_id"];
-	this.periph_ip_meter = config["periph_id_meter"] || this.periph_id + 1;
-	this.eedomus_ip = config["eedomus_ip"] || "cloud";
-	this.api_user = config["api_user"];
-	this.api_secret = config["api_secret"];
-	this.lock_on = config["lock_on"] || false;
+	this.config = config || {};
+	this.name = config.name;
+	this.url = config.url;
+	this.refresh = config.refreshSeconds || 10;
+	this.periph_id = config.periph_id;
+	this.periph_ip_meter = config.periph_id_meter || this.periph_id + 1;
+	this.eedomus_ip = config.eedomus_ip || "cloud";
+	this.api_user = config.api_user;
+	this.api_secret = config.api_secret;
+	this.lock_on = config.lock_on || false;
 	if (this.eedomus_ip == "cloud") {
 		this.get_url = "https://api.eedomus.com/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_id + "";
 		this.set_url = "https://api.eedomus.com/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.value&periph_id=" + this.periph_id + "&value=";
@@ -81,9 +88,41 @@ function eedomusOutlet(log, config) {
 		this.set_url = "http://" + this.eedomus_ip + "/api/set?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.value&periph_id=" + this.periph_id + "&value=";  
 		this.get_url_meter = "http://" + this.eedomus_ip + "/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_ip_meter + "";
 	}
-
-	this.informationService = new Service.AccessoryInformation();
+	this.UUID = UUIDGen.generate(sprintf("powermeter-%s", config.periph_id));
 	var package = require('./package.json');
+	this.intPower = 0;
+	this.acquiredSamples = 0;
+	this.lastReset = 0;
+	this.value = 0;
+	this.totalenergy = 0;
+	this.totalenergytemp = 0;
+	this.ExtraPersistedData = {};
+	
+	correctingInterval.setCorrectingInterval(function () {
+		if (this.powerLoggingService.isHistoryLoaded()) {
+			this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
+			if (this.ExtraPersistedData != undefined) {
+				this.totalenergy = this.ExtraPersistedData.totalenergy + this.totalenergytemp + this.value * this.refresh / 3600 / 1000;
+				this.powerLoggingService.setExtraPersistedData({ totalenergy: this.totalenergy, lastReset: this.ExtraPersistedData.lastReset });
+			}
+			else {
+				this.totalenergy = this.totalenergytemp + this.value * this.refresh / 3600 / 1000;
+				this.powerLoggingService.setExtraPersistedData({ totalenergy: this.totalenergy, lastReset: 0 });
+			}
+			this.totalenergytemp = 0;
+
+		}
+		else {
+			this.totalenergytemp = this.totalenergytemp + this.value * this.refresh / 3600 / 1000;
+			this.totalenergy = this.totalenergytemp;
+		}
+		this.outlet.getCharacteristic(CurrentPowerConsumption).getValue(null);
+		this.outlet.getCharacteristic(TotalConsumption).getValue(null);
+		this.powerLoggingService.addEntry({ time: Date.now(), power: this.value });
+	}.bind(this), this.refresh * 1000);
+	
+	this.informationService = new Service.AccessoryInformation();
+		
 	this.informationService
 		.setCharacteristic(Characteristic.Name, this.name)
 		.setCharacteristic(Characteristic.Manufacturer, "Homebridge")
@@ -91,28 +130,30 @@ function eedomusOutlet(log, config) {
 		.setCharacteristic(Characteristic.FirmwareRevision, package.version)
 		.setCharacteristic(Characteristic.SerialNumber, this.periph_id);
 
-	this.service = new Service.Outlet(this.name);
-
-	this.service.getCharacteristic(Characteristic.On)
+	this.outlet = new Service.Outlet(this.name);
+	this.outlet.getCharacteristic(Characteristic.On)
 	.on('get', this.getState.bind(this))
 	.on('set', this.setState.bind(this));
 
-	this.service.getCharacteristic(Characteristic.OutletInUse)
-	.on('get', this.getState.bind(this));
-
-	this.service.getCharacteristic(CurrentpowerConsumption)
+	this.outlet.getCharacteristic(Characteristic.OutletInUse)
+	.on('get',  (callback) => {
+		callback(null, this.inUse);
+	});
+	
+	this.outlet.getCharacteristic(CurrentPowerConsumption)
 	.on('get', this.getpowerConsumption.bind(this));
 
-	this.service.getCharacteristic(TotalPowerConsumption)
+	this.outlet.getCharacteristic(TotalConsumption)
 	.on('get',  (callback) => {
  		this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
  		if (this.ExtraPersistedData != undefined) {
- 			totalPower = this.ExtraPersistedData.totalPower;
+			 this.totalPower = this.ExtraPersistedData.totalPower;
+			 this.log.debug("getConsumptio = %f", this.totalenergy);
  		}
-		callback(null, totalPower);
+		callback(null, this.totalPower);
 	});
 
-	this.service.getCharacteristic(ResetTotal)
+	this.outlet.getCharacteristic(ResetTotal)
 		.on('set', (value, callback) => {
 			this.totalPower = 0;
 			this.lastReset = value;
@@ -127,47 +168,6 @@ function eedomusOutlet(log, config) {
 		});
 
 	this.powerLoggingService = new FakeGatoHistoryService("energy", this, {storage: 'fs'});
-
-
-	// setting up scheduled pulling
-	emitter = pollingToEvent( function(done) {
-		request.get(
-			{url: self.get_url_meter},
-			function(err, response, body) {
-				if(!err && response.statusCode == 200) {
-					done(err, body);
-				}
-			}
-		);
-	},
-	{ longpolling: true, interval: refresh }
-	);
-
-	emitter.on("longpoll", function(data) {
-		var totalPowerTemp = 0;
-
-		var json = JSON.parse(data);
-		if (self.powerLoggingService.isHistoryLoaded()) {
-			self.ExtraPersistedData = self.powerLoggingService.getExtraPersistedData();
-			if (self.ExtraPersistedData != undefined && self.ExtraPersistedData.totalPower != undefined) {
-				self.totalPower = self.ExtraPersistedData.totalPower + totalPowerTemp + json.body.last_value * refresh / 3600 / 1000;
-				self.powerLoggingService.setExtraPersistedData({ totalPower: totalPower, lastReset: self.ExtraPersistedData.lastReset });
-			}
-			else {
-				totalPower = totalPowerTemp + json.body.last_value * refresh / 3600 / 1000;
-				self.powerLoggingService.setExtraPersistedData({ totalPower: totalPower, lastReset: 0 });
-			}
-			totalPowerTemp = 0;
-
-		}
-		else {
-			totalPowerTemp = totalPowerTemp + json.body.last_value * refresh / 3600 / 1000;
-			totalPower = totalPowerTemp;
-		}
-		self.service.getCharacteristic(CurrentpowerConsumption).getValue(null);
-		self.service.getCharacteristic(TotalPowerConsumption).getValue(null);
-		self.powerLoggingService.addEntry({ time: Date.now(), power: json.body.last_value });
-	});
 }
 
 // getState
@@ -198,8 +198,10 @@ eedomusOutlet.prototype.getpowerConsumption = function(callback) {
 		function(err, response, body) {
 			if(!err && response.statusCode == 200) {
 				var json = JSON.parse(body);
-				var power = json.body.last_value;
-				callback( null, Math.round(power));
+				var power = Math.round(json.body.last_value);
+				this.value = power;
+				this.inUse = power == "0" ? false : true;
+				callback( null, power);
 			} else {
 				callback(err);
 				this.log("getPower error: %s", err);
@@ -234,11 +236,10 @@ eedomusOutlet.prototype.setState = function( state, callback) {
 // Lock ON
 eedomusOutlet.prototype.lockOn = function() {
 	setTimeout(() => {
-		this.service.getCharacteristic(Characteristic.On).updateValue("1");
-		this.service.getCharacteristic(Characteristic.OutletInUse).updateValue("1");
+		this.outlet.getCharacteristic(Characteristic.On).updateValue("1");
 	}, 250);
 }
 
 eedomusOutlet.prototype.getServices = function() {
-	return [this.informationService, this.service, this.powerLoggingService];
+	return [this.informationService, this.powerLoggingService, this.outlet];
 }

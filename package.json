@@ -1,6 +1,6 @@
 {
 	"name": "homebridge-eedomus-outlet-meter",
-	"version": "0.1.1",
+	"version": "1.0.0",
 	"description": "Switch Outlet from eedomus and show data with fakegato-history",
 	"license": "MIT",
 	"keywords": [
@@ -24,7 +24,9 @@
 	},
 	"dependencies": {
 		"request": "^2.65.0",
-		"fakegato-history": ">=0.5.5",
+		"fakegato-history": ">=0.5.6",
+		"correcting-interval": "^2.0.0",
+		"sprintf-js": "^1.0.3",
 		"polling-to-event": ">=2.1.0"
 	}
 }

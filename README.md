@@ -12,6 +12,7 @@
 
 ## Description
 A simple Homebridge plugin for eddomus outlets providing data to Elgato Eve app using Fakegato-History.
+Appears as a regular outlet with _"in use"_ state in Home app.
 
 eedomus box create two separate periph_id for "state" and "power metering". Usually the second one was the next periph_id but you can change it if needed.
 You can avoid accidental shutdown, with the "lock_on" option.
