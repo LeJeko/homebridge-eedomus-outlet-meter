@@ -1,0 +1,63 @@
+{
+	"pluginAlias": "eedomusOutlet",
+	"pluginType": "accessory",
+	"schema": {
+		"type": "object",
+		"properties": {
+			"name": {
+				"title": "Name",
+				"type": "string",
+				"required": true,
+				"default": "",
+				"description": ""
+			},
+			"periph_id": {
+				"title": "eedomus API periph_id for switch channel",
+				"type": "integer",
+				"required": true,
+				"default": "",
+				"description": ""
+			},
+			"periph_id_meter": {
+				"title": "eedomus API periph_id for power meter channel",
+				"type": "integer",
+				"required": false,
+				"default": "",
+				"description": "(Optional) Default : periph_id + 1"
+			},
+			"eedomus_ip": {
+				"title": "eedomus ip address ou \"cloud\"",
+				"type": "string",
+				"required": true,
+				"default": "",
+				"description": ""
+			},
+			"api_user": {
+				"title": "eedomus API user",
+				"type": "string",
+				"required": true,
+				"default": "",
+				"description": ""
+			},
+			"api_secret": {
+				"title": "eedomus API secret",
+				"type": "string",
+				"required": true,
+				"default": "",
+				"description": ""
+			},
+			"refreshSeconds": {
+				"title": "Refresh in seconds",
+				"type": "integer",
+				"default": 10,
+				"required": false,
+				"description": "(Optional) Default: 10"
+			},
+			"lock_on": {
+				"title": "Always ON",
+				"type": "boolean",
+				"description": "Avoid accidental shutdown"
+			}
+		}
+	}
+}
