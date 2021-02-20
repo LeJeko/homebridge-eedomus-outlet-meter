@@ -71,6 +71,7 @@ function eedomusOutlet(log, config) {
 	this.log = log;
 	this.config = config || {};
 	this.name = config.name;
+	this.displayName = config.name;
 	this.url = config.url;
 	this.refresh = config.refreshSeconds || 10;
 	this.periph_id = config.periph_id;
@@ -148,7 +149,7 @@ function eedomusOutlet(log, config) {
  		this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
  		if (this.ExtraPersistedData != undefined) {
 			 this.totalPower = this.ExtraPersistedData.totalPower;
-			 this.log.debug("getConsumptio = %f", this.totalenergy);
+			 this.log.debug("getConsumption = %f", this.totalenergy);
  		}
 		callback(null, this.totalPower);
 	});
