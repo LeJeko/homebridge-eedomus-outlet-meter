@@ -148,17 +148,17 @@ function eedomusOutlet(log, config) {
 	.on('get',  (callback) => {
  		this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
  		if (this.ExtraPersistedData != undefined) {
-			 this.totalPower = this.ExtraPersistedData.totalPower;
+			 this.totalenergy = this.ExtraPersistedData.totalenergy;
 			 this.log.debug("getConsumption = %f", this.totalenergy);
  		}
-		callback(null, this.totalPower);
+		callback(null, this.totalenergy);
 	});
 
 	this.outlet.getCharacteristic(ResetTotal)
 		.on('set', (value, callback) => {
-			this.totalPower = 0;
+			this.totalenergy = 0;
 			this.lastReset = value;
-			this.powerLoggingService.setExtraPersistedData({ totalPower: this.totalPower, lastReset: this.lastReset });
+			this.powerLoggingService.setExtraPersistedData({ totalenergy: this.totalenergy, lastReset: this.lastReset });
 			callback(null);
 		})
 		.on('get', (callback) => {
