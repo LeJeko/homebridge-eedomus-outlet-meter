@@ -32,7 +32,8 @@ The following parameters are supported:
    "name": "TV power",                 // name in HomeKit
    "periph_id": 123456,                // eedomus API periph_id
    "periph_id_meter": 123457,          // (Optional) Default : periph_id + 1
-   "eedomus_ip": "1.2.3.4",            // eedomus ip address ou "cloud"
+   "eedomus_connection": "ip",         // connection method (Default: "cloud")
+   "eedomus_ip": "1.2.3.4",            // eedomus ip address
    "api_user": "XXXXXX",               // eedomus API user
    "api_secret": "YYYYYYYYYYYYYYYY",   // eedomus API secret
    "refreshSeconds": 5,                // (Optional) Default: 10

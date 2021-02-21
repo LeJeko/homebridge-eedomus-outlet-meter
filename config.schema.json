@@ -25,12 +25,32 @@
 				"default": "",
 				"description": "(Optional) Default : periph_id + 1"
 			},
-			"eedomus_ip": {
-				"title": "eedomus ip address ou \"cloud\"",
+			"eedomus_connection": {
+				"title": "Method",
 				"type": "string",
-				"required": true,
-				"default": "",
-				"description": ""
+				"default": "cloud",
+				"oneOf": [
+					{
+						"title": "Cloud",
+						"enum": [
+							"cloud"
+						]
+					},
+					{
+						"title": "IP",
+						"enum": [
+							"ip"
+						]
+					}
+				],
+				"required": true
+			},
+			"eedomus_ip": {
+				"title": "eedomus ip address",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.eedomus_connection === 'ip';"
+				}
 			},
 			"api_user": {
 				"title": "eedomus API user",
