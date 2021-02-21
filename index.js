@@ -1,16 +1,15 @@
 var Service, Characteristic, UUIDGen, FakeGatoHistoryService;
-var request = require("request");
 var sprintf = require("sprintf-js").sprintf;
 var inherits = require('util').inherits;
 var correctingInterval = require('correcting-interval');
 
 //Initialize
-module.exports = function(homebridge) {
+module.exports = function (homebridge) {
 	Service = homebridge.hap.Service;
 	Characteristic = homebridge.hap.Characteristic;
 	UUIDGen = homebridge.hap.uuid;
 	FakeGatoHistoryService = require('fakegato-history')(homebridge);
-	
+
 	CurrentPowerConsumption = function () {
 		Characteristic.call(this, 'Consumption', 'E863F10D-079E-48FF-8F27-9C2605A29F52');
 		this.setProps({
@@ -75,19 +74,20 @@ function eedomusOutlet(log, config) {
 	this.url = config.url;
 	this.refresh = config.refreshSeconds || 10;
 	this.periph_id = config.periph_id;
-	this.periph_ip_meter = config.periph_id_meter || this.periph_id + 1;
-	this.eedomus_ip = config.eedomus_ip || "cloud";
+	this.periph_id_meter = config.periph_id_meter || this.periph_id + 1;
+	this.eedomus_connection = config.eedomus_connection || "cloud";
+	this.eedomus_ip = config.eedomus_ip;
 	this.api_user = config.api_user;
 	this.api_secret = config.api_secret;
-	this.lock_on = config.lock_on || false;
-	if (this.eedomus_ip == "cloud") {
+	this.lock_on = config.lock_on || false;
+	if (this.eedomus_connection == "cloud") {
 		this.get_url = "https://api.eedomus.com/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_id + "";
 		this.set_url = "https://api.eedomus.com/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.value&periph_id=" + this.periph_id + "&value=";
-		this.get_url_meter = "https://api.eedomus.com/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_ip_meter + "";      
+		this.get_url_meter = "https://api.eedomus.com/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_id_meter + "";
 	} else {
 		this.get_url = "http://" + this.eedomus_ip + "/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_id + "";
-		this.set_url = "http://" + this.eedomus_ip + "/api/set?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.value&periph_id=" + this.periph_id + "&value=";  
-		this.get_url_meter = "http://" + this.eedomus_ip + "/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_ip_meter + "";
+		this.set_url = "http://" + this.eedomus_ip + "/api/set?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.value&periph_id=" + this.periph_id + "&value=";
+		this.get_url_meter = "http://" + this.eedomus_ip + "/api/get?api_user=" + this.api_user + "&api_secret=" + this.api_secret + "&action=periph.caract&periph_id=" + this.periph_id_meter + "";
 	}
 	this.UUID = UUIDGen.generate(sprintf("powermeter-%s", config.periph_id));
 	var package = require('./package.json');
@@ -95,10 +95,11 @@ function eedomusOutlet(log, config) {
 	this.acquiredSamples = 0;
 	this.lastReset = 0;
 	this.value = 0;
+	this.inUse = false;
 	this.totalenergy = 0;
 	this.totalenergytemp = 0;
 	this.ExtraPersistedData = {};
-	
+
 	correctingInterval.setCorrectingInterval(function () {
 		if (this.powerLoggingService.isHistoryLoaded()) {
 			this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
@@ -121,9 +122,9 @@ function eedomusOutlet(log, config) {
 		this.outlet.getCharacteristic(TotalConsumption).getValue(null);
 		this.powerLoggingService.addEntry({ time: Date.now(), power: this.value });
 	}.bind(this), this.refresh * 1000);
-	
+
 	this.informationService = new Service.AccessoryInformation();
-		
+
 	this.informationService
 		.setCharacteristic(Characteristic.Name, this.name)
 		.setCharacteristic(Characteristic.Manufacturer, "Homebridge")
@@ -133,26 +134,26 @@ function eedomusOutlet(log, config) {
 
 	this.outlet = new Service.Outlet(this.name);
 	this.outlet.getCharacteristic(Characteristic.On)
-	.on('get', this.getState.bind(this))
-	.on('set', this.setState.bind(this));
+		.on('get', this.getState.bind(this))
+		.on('set', this.setState.bind(this));
 
 	this.outlet.getCharacteristic(Characteristic.OutletInUse)
-	.on('get',  (callback) => {
-		callback(null, this.inUse);
-	});
-	
+		.on('get', (callback) => {
+			callback(null, this.inUse);
+		});
+
 	this.outlet.getCharacteristic(CurrentPowerConsumption)
-	.on('get', this.getpowerConsumption.bind(this));
+		.on('get', this.getpowerConsumption.bind(this));
 
 	this.outlet.getCharacteristic(TotalConsumption)
-	.on('get',  (callback) => {
- 		this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
- 		if (this.ExtraPersistedData != undefined) {
-			 this.totalenergy = this.ExtraPersistedData.totalenergy;
-			 this.log.debug("getConsumption = %f", this.totalenergy);
- 		}
-		callback(null, this.totalenergy);
-	});
+		.on('get', (callback) => {
+			this.ExtraPersistedData = this.powerLoggingService.getExtraPersistedData();
+			if (this.ExtraPersistedData != undefined) {
+				this.totalenergy = this.ExtraPersistedData.totalenergy;
+				this.log.debug("getConsumption = %f", this.totalenergy);
+			}
+			callback(null, this.totalenergy);
+		});
 
 	this.outlet.getCharacteristic(ResetTotal)
 		.on('set', (value, callback) => {
@@ -168,79 +169,206 @@ function eedomusOutlet(log, config) {
 			callback(null, this.lastReset);
 		});
 
-	this.powerLoggingService = new FakeGatoHistoryService("energy", this, {storage: 'fs'});
+	this.powerLoggingService = new FakeGatoHistoryService("energy", this, { storage: 'fs' });
 }
 
 // getState
-eedomusOutlet.prototype.getState = function(callback) {
+eedomusOutlet.prototype.getState = function (callback) {
 
-	if (this.lock_on) { 
+	if (this.lock_on) {
 		callback(null, "1");
 	} else {
-		request.get(
-			{url: this.get_url},
-			function(err, response, body) {
-				if(!err && response.statusCode == 200) {
-					var json = JSON.parse(body);
-					var state = json.body.last_value == 100 ? "1" : "0";
-					callback( null, state);
-				} else {
-					this.log("getState error: %s", err);
+		let url = new URL(this.get_url)
+		var protocol = (url.protocol == "http") ? require('http') : require('https')
+
+		const options = {
+			hostname: url.hostname,
+			port: url.port,
+			path: url.pathname + url.search,
+			method: 'GET'
+		}
+
+		process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0
+		var req = protocol.request(options, (resp) => {
+
+			this.log.debug("GET response received (%s)", resp.statusCode)
+
+			if (resp.statusCode === '401') {
+				this.log("Verify that you have the correct authenticationToken specified in your configuration.")
+				return
+			}
+
+			let data = ''
+			// A chunk of data has been received.
+			resp.on('data', (chunk) => {
+				data += chunk
+			})
+
+			// The whole response has been received. Print out the result.
+			resp.on('end', () => {
+
+				if (resp.statusCode == 200) {
+					var json = JSON.parse(data)
+					this.log.debug("JSON: (%s)", json)
+					var state = json.body.last_value == 100 ? "1" : "0"
+					callback(null, state)
 				}
-			}.bind(this)
-		);
-	
+			})
+		})
+
+		req.on("error", (err) => {
+			this.log("getState error (status code %s): %s", resp.statusCode, err.message)
+		})
+
+		req.on('timeout', function () {
+			// Timeout happend. Server received request, but not handled it
+			// (i.e. doesn't send any response or it took to long).
+			// You don't know what happend.
+			// It will emit 'error' message as well (with ECONNRESET code).
+
+			this.log('timeout')
+			req.destroy
+		})
+
+		req.setTimeout(5000)
+		req.end()
+
 	}
 }
 
-eedomusOutlet.prototype.getpowerConsumption = function(callback) {
-	request.get(
-		{url: this.get_url_meter},
-		function(err, response, body) {
-			if(!err && response.statusCode == 200) {
-				var json = JSON.parse(body);
-				var power = Math.round(json.body.last_value);
-				this.value = power;
-				this.inUse = power == "0" ? false : true;
-				callback( null, power);
-			} else {
-				callback(err);
-				this.log("getPower error: %s", err);
+eedomusOutlet.prototype.getpowerConsumption = function (callback) {
+
+	let url = new URL(this.get_url_meter)
+	var protocol = (url.protocol == "http") ? require('http') : require('https')
+	// this.log.debug(url)
+	const options = {
+		hostname: url.hostname,
+		port: url.port,
+		path: url.pathname + url.search,
+		method: 'GET'
+	}
+
+	process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0
+	var req = protocol.request(options, (resp) => {
+
+		this.log.debug("GET response received (%s)", resp.statusCode)
+
+		if (resp.statusCode === '401') {
+			this.log("Verify that you have the correct authenticationToken specified in your configuration.")
+			return
+		}
+
+		let data = ''
+		// A chunk of data has been received.
+		resp.on('data', (chunk) => {
+			data += chunk
+		})
+
+		// The whole response has been received. Print out the result.
+		resp.on('end', () => {
+
+			if (resp.statusCode == 200) {
+				var json = JSON.parse(data)
+				this.log.debug("JSON: (%s)", json)
+				var power = Math.round(json.body.last_value)
+				this.value = power
+				this.inUse = power == "0" ? false : true
+				callback(null, power)
+				this.log.debug("Power: (%s)", power)
 			}
-		}.bind(this)
-	);
+		})
+	})
+
+	req.on("error", (err) => {
+		this.log.debug("getpowerConsumption error: %s", err.message)
+	})
+
+	req.on('timeout', function () {
+		// Timeout happend. Server received request, but not handled it
+		// (i.e. doesn't send any response or it took to long).
+		// You don't know what happend.
+		// It will emit 'error' message as well (with ECONNRESET code).
+
+		this.log('timeout')
+		req.destroy
+	})
+
+	req.setTimeout(5000)
+	req.end()
+
 }
 
 
 // set State
-eedomusOutlet.prototype.setState = function( state, callback) {
+eedomusOutlet.prototype.setState = function (state, callback) {
 	if (this.lock_on && !state) {
 		callback();
 		this.lockOn();
 	} else {
 		let requestUrl = this.set_url + (state ? 100 : 0);
+		let url = new URL(requestUrl)
+		var protocol = (url.protocol == "http") ? require('http') : require('https')
 
-		request.get(
-			{url: requestUrl},
-			function(err, response, body) {
-				if(!err && response.statusCode == 200) {
-					callback();
-				} else {
-					callback(err);
-					this.log("SetState error: %s", err);
+		const options = {
+			hostname: url.hostname,
+			port: url.port,
+			path: url.pathname + url.search,
+			method: 'GET'
+		}
+
+		process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0
+		var req = protocol.request(options, (resp) => {
+
+			this.log.debug("GET response received (%s)", resp.statusCode)
+
+			if (resp.statusCode === '401') {
+				this.log("Verify that you have the correct authenticationToken specified in your configuration.")
+				return
+			}
+
+			let data = ''
+			// A chunk of data has been received.
+			resp.on('data', (chunk) => {
+				data += chunk
+			})
+
+			// The whole response has been received. Print out the result.
+			resp.on('end', () => {
+
+				if (resp.statusCode == 200) {
+					callback()
 				}
-			}.bind(this)
-		);
+			})
+		})
+
+		req.on("error", (err) => {
+			this.log("setState error (status code %s): %s", resp.statusCode, err.message)
+		})
+
+		req.on('timeout', function () {
+			// Timeout happend. Server received request, but not handled it
+			// (i.e. doesn't send any response or it took to long).
+			// You don't know what happend.
+			// It will emit 'error' message as well (with ECONNRESET code).
+
+			this.log('timeout')
+			req.destroy
+		})
+
+		req.setTimeout(5000)
+		req.end()
+
+
 	}
 }
 
 // Lock ON
-eedomusOutlet.prototype.lockOn = function() {
+eedomusOutlet.prototype.lockOn = function () {
 	setTimeout(() => {
 		this.outlet.getCharacteristic(Characteristic.On).updateValue("1");
 	}, 250);
 }
 
-eedomusOutlet.prototype.getServices = function() {
+eedomusOutlet.prototype.getServices = function () {
 	return [this.informationService, this.powerLoggingService, this.outlet];
 }
