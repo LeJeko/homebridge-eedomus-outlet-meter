@@ -67,8 +67,16 @@ module.exports = function (homebridge) {
 
 // function eedomusOutlet
 function eedomusOutlet(log, config) {
-	this.log = log;
-	this.config = config || {};
+
+	// Don't load the plugin if these aren't accessible for any reason
+	if (!log || !config) {
+		return
+	  }
+
+	this.log = log  
+	this.log("Initialising...")
+
+	this.config = config;
 	this.name = config.name;
 	this.displayName = config.name;
 	this.url = config.url;
@@ -179,7 +187,7 @@ eedomusOutlet.prototype.getState = function (callback) {
 		callback(null, "1");
 	} else {
 		let url = new URL(this.get_url)
-		var protocol = (url.protocol == "http") ? require('http') : require('https')
+		var protocol = (url.protocol == "http:") ? require('http') : require('https')
 
 		const options = {
 			hostname: url.hostname,
@@ -188,15 +196,9 @@ eedomusOutlet.prototype.getState = function (callback) {
 			method: 'GET'
 		}
 
-		process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0
 		var req = protocol.request(options, (resp) => {
 
 			this.log.debug("GET response received (%s)", resp.statusCode)
-
-			if (resp.statusCode === '401') {
-				this.log("Verify that you have the correct authenticationToken specified in your configuration.")
-				return
-			}
 
 			let data = ''
 			// A chunk of data has been received.
@@ -212,25 +214,18 @@ eedomusOutlet.prototype.getState = function (callback) {
 					this.log.debug("JSON: (%s)", json)
 					var state = json.body.last_value == 100 ? "1" : "0"
 					callback(null, state)
+				} else {
+					this.log("Error getting State: %s : %s",resp.statusCode, resp.statusMessage)
+					callback(null, 0)
 				}
 			})
 		})
 
 		req.on("error", (err) => {
-			this.log("getState error (status code %s): %s", resp.statusCode, err.message)
+			this.log("Error getting State: %s - %s : %s",err.code, err.status, err.message)
+    		callback(null, 0 )
 		})
 
-		req.on('timeout', function () {
-			// Timeout happend. Server received request, but not handled it
-			// (i.e. doesn't send any response or it took to long).
-			// You don't know what happend.
-			// It will emit 'error' message as well (with ECONNRESET code).
-
-			this.log('timeout')
-			req.destroy
-		})
-
-		req.setTimeout(5000)
 		req.end()
 
 	}
@@ -239,7 +234,7 @@ eedomusOutlet.prototype.getState = function (callback) {
 eedomusOutlet.prototype.getpowerConsumption = function (callback) {
 
 	let url = new URL(this.get_url_meter)
-	var protocol = (url.protocol == "http") ? require('http') : require('https')
+	var protocol = (url.protocol == "http:") ? require('http') : require('https')
 	// this.log.debug(url)
 	const options = {
 		hostname: url.hostname,
@@ -248,15 +243,9 @@ eedomusOutlet.prototype.getpowerConsumption = function (callback) {
 		method: 'GET'
 	}
 
-	process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0
 	var req = protocol.request(options, (resp) => {
 
 		this.log.debug("GET response received (%s)", resp.statusCode)
-
-		if (resp.statusCode === '401') {
-			this.log("Verify that you have the correct authenticationToken specified in your configuration.")
-			return
-		}
 
 		let data = ''
 		// A chunk of data has been received.
@@ -275,25 +264,18 @@ eedomusOutlet.prototype.getpowerConsumption = function (callback) {
 				this.inUse = power == "0" ? false : true
 				callback(null, power)
 				this.log.debug("Power: (%s)", power)
+			} else {
+				this.log("Error getting Comsumption: %s : %s",resp.statusCode, resp.statusMessage)
+				callback(null, 0)
 			}
 		})
 	})
 
 	req.on("error", (err) => {
-		this.log.debug("getpowerConsumption error: %s", err.message)
+		this.log("Error getting Comsumption: %s - %s : %s",err.code, err.status, err.message)
+    	callback(null, 0 )
 	})
 
-	req.on('timeout', function () {
-		// Timeout happend. Server received request, but not handled it
-		// (i.e. doesn't send any response or it took to long).
-		// You don't know what happend.
-		// It will emit 'error' message as well (with ECONNRESET code).
-
-		this.log('timeout')
-		req.destroy
-	})
-
-	req.setTimeout(5000)
 	req.end()
 
 }
@@ -307,7 +289,7 @@ eedomusOutlet.prototype.setState = function (state, callback) {
 	} else {
 		let requestUrl = this.set_url + (state ? 100 : 0);
 		let url = new URL(requestUrl)
-		var protocol = (url.protocol == "http") ? require('http') : require('https')
+		var protocol = (url.protocol == "http:") ? require('http') : require('https')
 
 		const options = {
 			hostname: url.hostname,
@@ -316,15 +298,9 @@ eedomusOutlet.prototype.setState = function (state, callback) {
 			method: 'GET'
 		}
 
-		process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0
 		var req = protocol.request(options, (resp) => {
 
 			this.log.debug("GET response received (%s)", resp.statusCode)
-
-			if (resp.statusCode === '401') {
-				this.log("Verify that you have the correct authenticationToken specified in your configuration.")
-				return
-			}
 
 			let data = ''
 			// A chunk of data has been received.
@@ -337,25 +313,18 @@ eedomusOutlet.prototype.setState = function (state, callback) {
 
 				if (resp.statusCode == 200) {
 					callback()
+				} else {
+					this.log("Error setting State: %s : %s",resp.statusCode, resp.statusMessage)
+					callback()
 				}
 			})
 		})
 
 		req.on("error", (err) => {
-			this.log("setState error (status code %s): %s", resp.statusCode, err.message)
+			this.log("Error setting State: %s - %s : %s",err.code, err.status, err.message)
+    		callback()
 		})
 
-		req.on('timeout', function () {
-			// Timeout happend. Server received request, but not handled it
-			// (i.e. doesn't send any response or it took to long).
-			// You don't know what happend.
-			// It will emit 'error' message as well (with ECONNRESET code).
-
-			this.log('timeout')
-			req.destroy
-		})
-
-		req.setTimeout(5000)
 		req.end()
 
 
