@@ -1,6 +1,6 @@
 {
 	"name": "homebridge-eedomus-outlet-meter",
-	"version": "1.2.3",
+	"version": "1.2.4",
 	"description": "Switch Outlet from eedomus and history with fakegato-history",
 	"license": "MIT",
 	"keywords": [
