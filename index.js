@@ -210,6 +210,15 @@ eedomusOutlet.prototype.getState = function (callback) {
 			resp.on('end', () => {
 
 				if (resp.statusCode == 200) {
+
+					try {
+						JSON.parse(data)
+					  } catch (e) {
+						this.log("Error: not JSON!");
+						callback(null, 0)
+						return
+					  }
+			  
 					var json = JSON.parse(data)
 					this.log.debug("JSON: (%s)", json)
 					var state = json.body.last_value == 100 ? "1" : "0"
@@ -257,6 +266,15 @@ eedomusOutlet.prototype.getpowerConsumption = function (callback) {
 		resp.on('end', () => {
 
 			if (resp.statusCode == 200) {
+
+				try {
+					JSON.parse(data)
+				  } catch (e) {
+					this.log("Error: not JSON!");
+					callback(null, 0)
+					return
+				  }
+		  
 				var json = JSON.parse(data)
 				this.log.debug("JSON: (%s)", json)
 				var power = Math.round(json.body.last_value)
