@@ -6,7 +6,7 @@
 
 # homebridge-eedomus-outlet-meter
 
-[![npm](https://img.shields.io/npm/v/homebridge-eedomus-outlet-meter.svg)](https://www.npmjs.com/package/homebridge-eedomus-outlet-meter) [![npm](https://img.shields.io/npm/dt/homebridge-eedomus-outlet-meter.svg)](https://www.npmjs.com/package/homebridge-eedomus-outlet-meter)
+[![npm](https://img.shields.io/npm/v/homebridge-eedomus-outlet-meter.svg)](https://www.npmjs.com/package/homebridge-eedomus-outlet-meter) [![npm](https://img.shields.io/npm/dt/homebridge-eedomus-outlet-meter.svg)](https://www.npmjs.com/package/homebridge-eedomus-outlet-meter) [![Donate](https://img.shields.io/badge/donate-PayPal-blue.svg)](https://www.paypal.com/donate?hosted_button_id=LU7BSTQF3DEZQ)
 
 </span>
 
